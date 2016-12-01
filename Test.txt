@@ -1,0 +1,740 @@
+OBJECT Table 3 Payment Terms
+{
+  OBJECT-PROPERTIES
+  {
+    Date=13/02/07;
+    Time=12:00:00;
+    Version List=NAVW15.00;
+  }
+  PROPERTIES
+  {
+    DataCaptionFields=Code,Description;
+    OnDelete=VAR
+               PaymentTermsTranslation@1000 : Record 462;
+             BEGIN
+               WITH PaymentTermsTranslation DO BEGIN
+                 SETRANGE("Payment Term",Code);
+                 DELETEALL
+               END;
+             END;
+
+    CaptionML=[ENU=Payment Terms;
+               RUS=Формула Оплаты];
+    LookupFormID=Form4;
+  }
+  FIELDS
+  {
+    { 1   ;   ;Code                ;Code10        ;CaptionML=[ENU=Code;
+                                                              RUS=Код];
+                                                   NotBlank=Yes }
+    { 2   ;   ;Due Date Calculation;DateFormula   ;CaptionML=[ENU=Due Date Calculation;
+                                                              RUS=Расчет Даты Оплаты] }
+    { 3   ;   ;Discount Date Calculation;DateFormula;
+                                                   CaptionML=[ENU=Discount Date Calculation;
+                                                              RUS=Расчет Даты Скидки Оплаты] }
+    { 4   ;   ;Discount %          ;Decimal       ;CaptionML=[ENU=Discount %;
+                                                              RUS=Скидка %];
+                                                   DecimalPlaces=0:5;
+                                                   MinValue=0;
+                                                   MaxValue=100 }
+    { 5   ;   ;Description         ;Text50        ;CaptionML=[ENU=Description;
+                                                              RUS=Описание] }
+    { 6   ;   ;Calc. Pmt. Disc. on Cr. Memos;Boolean;
+                                                   CaptionML=[ENU=Calc. Pmt. Disc. on Cr. Memos;
+                                                              RUS=Расчет Скид. Опл. в Кр. Нотах] }
+  }
+  KEYS
+  {
+    {    ;Code                                    ;Clustered=Yes }
+  }
+  CODE
+  {
+
+    PROCEDURE TranslateDescription@1(VAR PaymentTerms@1000 : Record 3;Language@1001 : Code[10]);
+    VAR
+      PaymentTermsTranslation@1002 : Record 462;
+    BEGIN
+      IF PaymentTermsTranslation.GET(PaymentTerms.Code,Language) THEN
+        PaymentTerms.Description := PaymentTermsTranslation.Description;
+    END;
+
+    BEGIN
+    END.
+  }
+}
+
+OBJECT Table 4 Currency
+{
+  OBJECT-PROPERTIES
+  {
+    Date=21/04/10;
+    Time=15:25:20;
+    Modified=Yes;
+    Version List=NAVW15.00,NAVRU5.00.01.03,NCPIF001,MDTA01,MDTY01,MFUT01;
+  }
+  PROPERTIES
+  {
+    DataPerCompany=No;
+    OnModify=BEGIN
+               "Last Date Modified" := TODAY;
+             END;
+
+    OnDelete=BEGIN
+               CurrExchRate.SETRANGE("Currency Code",Code);
+               CurrExchRate.DELETEALL;
+             END;
+
+    OnRename=BEGIN
+               "Last Date Modified" := TODAY;
+             END;
+
+    CaptionML=[ENU=Currency;
+               RUS=Валюта];
+    LookupFormID=Form5;
+  }
+  FIELDS
+  {
+    { 1   ;   ;Code                ;Code10        ;CaptionML=[ENU=Code;
+                                                              RUS=Код];
+                                                   NotBlank=Yes }
+    { 2   ;   ;Last Date Modified  ;Date          ;CaptionML=[ENU=Last Date Modified;
+                                                              RUS=Дата Посл. Изменения];
+                                                   Editable=No }
+    { 3   ;   ;Last Date Adjusted  ;Date          ;CaptionML=[ENU=Last Date Adjusted;
+                                                              RUS=Дата Посл. Коррекции];
+                                                   Editable=No }
+    { 6   ;   ;Unrealized Gains Acc.;Code20       ;TableRelation="G/L Account";
+                                                   OnValidate=BEGIN
+                                                                CheckGLAcc("Unrealized Gains Acc.");
+                                                              END;
+
+                                                   CaptionML=[ENU=Unrealized Gains Acc.;
+                                                              RUS=Нереал. Прибыль Фин. Счет] }
+    { 7   ;   ;Realized Gains Acc. ;Code20        ;TableRelation="G/L Account";
+                                                   OnValidate=BEGIN
+                                                                CheckGLAcc("Realized Gains Acc.");
+                                                              END;
+
+                                                   CaptionML=[ENU=Realized Gains Acc.;
+                                                              RUS=Реализ. Прибыль Фин. Счет] }
+    { 8   ;   ;Unrealized Losses Acc.;Code20      ;TableRelation="G/L Account";
+                                                   OnValidate=BEGIN
+                                                                CheckGLAcc("Unrealized Losses Acc.");
+                                                              END;
+
+                                                   CaptionML=[ENU=Unrealized Losses Acc.;
+                                                              RUS=Нереал. Убытки Фин. Счет] }
+    { 9   ;   ;Realized Losses Acc.;Code20        ;TableRelation="G/L Account";
+                                                   OnValidate=BEGIN
+                                                                CheckGLAcc("Realized Losses Acc.");
+                                                              END;
+
+                                                   CaptionML=[ENU=Realized Losses Acc.;
+                                                              RUS=Реализ. Убытки Фин. Счет] }
+    { 10  ;   ;Invoice Rounding Precision;Decimal ;InitValue=0.01;
+                                                   OnValidate=BEGIN
+                                                                IF "Amount Rounding Precision" <> 0 THEN
+                                                                  IF "Invoice Rounding Precision" <> ROUND("Invoice Rounding Precision","Amount Rounding Precision") THEN
+                                                                    FIELDERROR(
+                                                                      "Invoice Rounding Precision",
+                                                                      STRSUBSTNO(Text000,"Amount Rounding Precision"));
+                                                              END;
+
+                                                   CaptionML=[ENU=Invoice Rounding Precision;
+                                                              RUS=Счет Точность Округления];
+                                                   AutoFormatType=1;
+                                                   AutoFormatExpr=Code }
+    { 12  ;   ;Invoice Rounding Type;Option       ;CaptionML=[ENU=Invoice Rounding Type;
+                                                              RUS=Счет Тип Округления];
+                                                   OptionCaptionML=[ENU=Nearest,Up,Down;
+                                                                    RUS=Ближайшее,Большее,Меньшее];
+                                                   OptionString=Nearest,Up,Down }
+    { 13  ;   ;Amount Rounding Precision;Decimal  ;InitValue=0.01;
+                                                   OnValidate=BEGIN
+                                                                IF "Amount Rounding Precision" <> 0 THEN
+                                                                  "Invoice Rounding Precision" := ROUND("Invoice Rounding Precision","Amount Rounding Precision");
+                                                              END;
+
+                                                   CaptionML=[ENU=Amount Rounding Precision;
+                                                              RUS=Сумма Точность Округления];
+                                                   DecimalPlaces=2:5;
+                                                   MinValue=0 }
+    { 14  ;   ;Unit-Amount Rounding Precision;Decimal;
+                                                   InitValue=0.00001;
+                                                   CaptionML=[ENU=Unit-Amount Rounding Precision;
+                                                              RUS=Цена Точность Округления];
+                                                   DecimalPlaces=0:9;
+                                                   MinValue=0 }
+    { 15  ;   ;Description         ;Text30        ;CaptionML=[ENU=Description;
+                                                              RUS=Описание] }
+    { 17  ;   ;Amount Decimal Places;Text5        ;InitValue=2:2;
+                                                   OnValidate=BEGIN
+                                                                GLSetup.CheckDecimalPlacesFormat("Amount Decimal Places");
+                                                              END;
+
+                                                   CaptionML=[ENU=Amount Decimal Places;
+                                                              RUS=Сумма Десятичные Знаки];
+                                                   NotBlank=Yes }
+    { 18  ;   ;Unit-Amount Decimal Places;Text5   ;InitValue=2:5;
+                                                   OnValidate=BEGIN
+                                                                GLSetup.CheckDecimalPlacesFormat("Unit-Amount Decimal Places");
+                                                              END;
+
+                                                   CaptionML=[ENU=Unit-Amount Decimal Places;
+                                                              RUS=Цена Десятичные Знаки];
+                                                   NotBlank=Yes }
+    { 19  ;   ;Customer Filter     ;Code20        ;FieldClass=FlowFilter;
+                                                   TableRelation=Customer;
+                                                   CaptionML=[ENU=Customer Filter;
+                                                              RUS=Клиент Фильтр] }
+    { 20  ;   ;Vendor Filter       ;Code20        ;FieldClass=FlowFilter;
+                                                   TableRelation=Vendor;
+                                                   CaptionML=[ENU=Vendor Filter;
+                                                              RUS=Поставщик Фильтр] }
+    { 21  ;   ;Global Dimension 1 Filter;Code20   ;FieldClass=FlowFilter;
+                                                   TableRelation="Dimension Value".Code WHERE (Global Dimension No.=CONST(1));
+                                                   CaptionML=[ENU=Global Dimension 1 Filter;
+                                                              RUS=Глобал. Измерение 1 Фильтр];
+                                                   CaptionClass='1,3,1' }
+    { 22  ;   ;Global Dimension 2 Filter;Code20   ;FieldClass=FlowFilter;
+                                                   TableRelation="Dimension Value".Code WHERE (Global Dimension No.=CONST(2));
+                                                   CaptionML=[ENU=Global Dimension 2 Filter;
+                                                              RUS=Глобал. Измерение 2 Фильтр];
+                                                   CaptionClass='1,3,2' }
+    { 23  ;   ;Date Filter         ;Date          ;FieldClass=FlowFilter;
+                                                   CaptionML=[ENU=Date Filter;
+                                                              RUS=Дата Фильтр] }
+    { 24  ;   ;Cust. Ledg. Entries in Filter;Boolean;
+                                                   FieldClass=FlowField;
+                                                   CalcFormula=Exist("Cust. Ledger Entry" WHERE (Customer No.=FIELD(Customer Filter),
+                                                                                                 Currency Code=FIELD(Code)));
+                                                   CaptionML=[ENU=Cust. Ledg. Entries in Filter;
+                                                              RUS=Клиент Операции в Фильтре];
+                                                   Editable=No }
+    { 25  ;   ;Customer Balance    ;Decimal       ;FieldClass=FlowField;
+                                                   CalcFormula=Sum("Detailed Cust. Ledg. Entry".Amount WHERE (Customer No.=FIELD(Customer Filter),
+                                                                                                              Initial Entry Global Dim. 1=FIELD(Global Dimension 1 Filter),
+                                                                                                              Initial Entry Global Dim. 2=FIELD(Global Dimension 2 Filter),
+                                                                                                              Posting Date=FIELD(Date Filter),
+                                                                                                              Currency Code=FIELD(Code),
+                                                                                                              Agreement No.=FIELD(Agreement Filter)));
+                                                   CaptionML=[ENU=Customer Balance;
+                                                              RUS=Клиент Баланс];
+                                                   Editable=No;
+                                                   AutoFormatType=1;
+                                                   AutoFormatExpr=Code }
+    { 26  ;   ;Customer Outstanding Orders;Decimal;FieldClass=FlowField;
+                                                   CalcFormula=Sum("Sales Line"."Outstanding Amount" WHERE (Document Type=CONST(Order),
+                                                                                                            Bill-to Customer No.=FIELD(Customer Filter),
+                                                                                                            Currency Code=FIELD(Code),
+                                                                                                            Shortcut Dimension 1 Code=FIELD(Global Dimension 1 Filter),
+                                                                                                            Shortcut Dimension 2 Code=FIELD(Global Dimension 2 Filter),
+                                                                                                            Agreement No.=FIELD(Agreement Filter)));
+                                                   CaptionML=[ENU=Customer Outstanding Orders;
+                                                              RUS=Клиент Остаток Заказов];
+                                                   Editable=No;
+                                                   AutoFormatType=1;
+                                                   AutoFormatExpr=Code }
+    { 27  ;   ;Customer Shipped Not Invoiced;Decimal;
+                                                   FieldClass=FlowField;
+                                                   CalcFormula=Sum("Sales Line"."Shipped Not Invoiced" WHERE (Document Type=CONST(Order),
+                                                                                                              Bill-to Customer No.=FIELD(Customer Filter),
+                                                                                                              Currency Code=FIELD(Code),
+                                                                                                              Shortcut Dimension 1 Code=FIELD(Global Dimension 1 Filter),
+                                                                                                              Shortcut Dimension 2 Code=FIELD(Global Dimension 2 Filter),
+                                                                                                              Agreement No.=FIELD(Agreement Filter)));
+                                                   CaptionML=[ENU=Customer Shipped Not Invoiced;
+                                                              RUS=Клиент Отгружено без Счетов];
+                                                   Editable=No;
+                                                   AutoFormatType=1;
+                                                   AutoFormatExpr=Code }
+    { 28  ;   ;Customer Balance Due;Decimal       ;FieldClass=FlowField;
+                                                   CalcFormula=Sum("Detailed Cust. Ledg. Entry".Amount WHERE (Customer No.=FIELD(Customer Filter),
+                                                                                                              Initial Entry Global Dim. 1=FIELD(Global Dimension 1 Filter),
+                                                                                                              Initial Entry Global Dim. 2=FIELD(Global Dimension 2 Filter),
+                                                                                                              Initial Entry Due Date=FIELD(Date Filter),
+                                                                                                              Posting Date=FIELD(UPPERLIMIT(Date Filter)),
+                                                                                                              Currency Code=FIELD(Code),
+                                                                                                              Agreement No.=FIELD(Agreement Filter)));
+                                                   CaptionML=[ENU=Customer Balance Due;
+                                                              RUS=Клиент Задолженность];
+                                                   Editable=No;
+                                                   AutoFormatType=1;
+                                                   AutoFormatExpr=Code }
+    { 29  ;   ;Vendor Ledg. Entries in Filter;Boolean;
+                                                   FieldClass=FlowField;
+                                                   CalcFormula=Exist("Vendor Ledger Entry" WHERE (Vendor No.=FIELD(Vendor Filter),
+                                                                                                  Currency Code=FIELD(Code)));
+                                                   CaptionML=[ENU=Vendor Ledg. Entries in Filter;
+                                                              RUS=Поставщик Операции в Фильтре];
+                                                   Editable=No }
+    { 30  ;   ;Vendor Balance      ;Decimal       ;FieldClass=FlowField;
+                                                   CalcFormula=-Sum("Detailed Vendor Ledg. Entry".Amount WHERE (Vendor No.=FIELD(Vendor Filter),
+                                                                                                                Initial Entry Global Dim. 1=FIELD(Global Dimension 1 Filter),
+                                                                                                                Initial Entry Global Dim. 2=FIELD(Global Dimension 2 Filter),
+                                                                                                                Posting Date=FIELD(Date Filter),
+                                                                                                                Currency Code=FIELD(Code),
+                                                                                                                Agreement No.=FIELD(Agreement Filter)));
+                                                   CaptionML=[ENU=Vendor Balance;
+                                                              RUS=Поставщик Баланс];
+                                                   Editable=No;
+                                                   AutoFormatType=1;
+                                                   AutoFormatExpr=Code }
+    { 31  ;   ;Vendor Outstanding Orders;Decimal  ;FieldClass=FlowField;
+                                                   CalcFormula=Sum("Purchase Line"."Outstanding Amount" WHERE (Document Type=CONST(Order),
+                                                                                                               Pay-to Vendor No.=FIELD(Vendor Filter),
+                                                                                                               Currency Code=FIELD(Code),
+                                                                                                               Shortcut Dimension 1 Code=FIELD(Global Dimension 1 Filter),
+                                                                                                               Shortcut Dimension 2 Code=FIELD(Global Dimension 2 Filter),
+                                                                                                               Agreement No.=FIELD(Agreement Filter)));
+                                                   CaptionML=[ENU=Vendor Outstanding Orders;
+                                                              RUS=Поставщик Баланс Заказов];
+                                                   Editable=No;
+                                                   AutoFormatType=1;
+                                                   AutoFormatExpr=Code }
+    { 32  ;   ;Vendor Amt. Rcd. Not Invoiced;Decimal;
+                                                   FieldClass=FlowField;
+                                                   CalcFormula=Sum("Purchase Line"."Amt. Rcd. Not Invoiced" WHERE (Document Type=CONST(Order),
+                                                                                                                   Pay-to Vendor No.=FIELD(Vendor Filter),
+                                                                                                                   Currency Code=FIELD(Code),
+                                                                                                                   Shortcut Dimension 1 Code=FIELD(Global Dimension 1 Filter),
+                                                                                                                   Shortcut Dimension 2 Code=FIELD(Global Dimension 2 Filter),
+                                                                                                                   Agreement No.=FIELD(Agreement Filter)));
+                                                   CaptionML=[ENU=Vendor Amt. Rcd. Not Invoiced;
+                                                              RUS=Поставщик Получено без Счетов];
+                                                   Editable=No;
+                                                   AutoFormatType=1;
+                                                   AutoFormatExpr=Code }
+    { 33  ;   ;Vendor Balance Due  ;Decimal       ;FieldClass=FlowField;
+                                                   CalcFormula=-Sum("Detailed Vendor Ledg. Entry".Amount WHERE (Vendor No.=FIELD(Vendor Filter),
+                                                                                                                Initial Entry Global Dim. 1=FIELD(Global Dimension 1 Filter),
+                                                                                                                Initial Entry Global Dim. 2=FIELD(Global Dimension 2 Filter),
+                                                                                                                Initial Entry Due Date=FIELD(Date Filter),
+                                                                                                                Posting Date=FIELD(UPPERLIMIT(Date Filter)),
+                                                                                                                Currency Code=FIELD(Code),
+                                                                                                                Agreement No.=FIELD(Agreement Filter)));
+                                                   CaptionML=[ENU=Vendor Balance Due;
+                                                              RUS=Поставщик Задолженность];
+                                                   Editable=No;
+                                                   AutoFormatType=1;
+                                                   AutoFormatExpr=Code }
+    { 34  ;   ;Customer Balance (LCY);Decimal     ;FieldClass=FlowField;
+                                                   CalcFormula=Sum("Detailed Cust. Ledg. Entry"."Amount (LCY)" WHERE (Customer No.=FIELD(Customer Filter),
+                                                                                                                      Initial Entry Global Dim. 1=FIELD(Global Dimension 1 Filter),
+                                                                                                                      Initial Entry Global Dim. 2=FIELD(Global Dimension 2 Filter),
+                                                                                                                      Posting Date=FIELD(Date Filter),
+                                                                                                                      Currency Code=FIELD(Code),
+                                                                                                                      Agreement No.=FIELD(Agreement Filter)));
+                                                   CaptionML=[ENU=Customer Balance (LCY);
+                                                              RUS=Клиент Баланс (РУБ)];
+                                                   Editable=No;
+                                                   AutoFormatType=1 }
+    { 35  ;   ;Vendor Balance (LCY);Decimal       ;FieldClass=FlowField;
+                                                   CalcFormula=-Sum("Detailed Vendor Ledg. Entry"."Amount (LCY)" WHERE (Vendor No.=FIELD(Vendor Filter),
+                                                                                                                        Initial Entry Global Dim. 1=FIELD(Global Dimension 1 Filter),
+                                                                                                                        Initial Entry Global Dim. 2=FIELD(Global Dimension 2 Filter),
+                                                                                                                        Posting Date=FIELD(Date Filter),
+                                                                                                                        Currency Code=FIELD(Code),
+                                                                                                                        Agreement No.=FIELD(Agreement Filter)));
+                                                   CaptionML=[ENU=Vendor Balance (LCY);
+                                                              RUS=Поставщик Баланс (РУБ)];
+                                                   Editable=No;
+                                                   AutoFormatType=1 }
+    { 40  ;   ;Realized G/L Gains Account;Code20  ;TableRelation="G/L Account";
+                                                   OnValidate=BEGIN
+                                                                CheckGLAcc("Realized G/L Gains Account");
+                                                              END;
+
+                                                   CaptionML=[ENU=Realized G/L Gains Account;
+                                                              RUS=Реализ. Фин. Прибыль Фин. Счет] }
+    { 41  ;   ;Realized G/L Losses Account;Code20 ;TableRelation="G/L Account";
+                                                   OnValidate=BEGIN
+                                                                CheckGLAcc("Realized G/L Losses Account");
+                                                              END;
+
+                                                   CaptionML=[ENU=Realized G/L Losses Account;
+                                                              RUS=Реализ. Фин. Убыток Фин. Счет] }
+    { 44  ;   ;Appln. Rounding Precision;Decimal  ;CaptionML=[ENU=Appln. Rounding Precision;
+                                                              RUS=Примен. Точность Округления];
+                                                   MinValue=0;
+                                                   AutoFormatType=1;
+                                                   AutoFormatExpr=Code }
+    { 45  ;   ;EMU Currency        ;Boolean       ;CaptionML=[ENU=EMU Currency;
+                                                              RUS=Валюта ЕС] }
+    { 46  ;   ;Currency Factor     ;Decimal       ;CaptionML=[ENU=Currency Factor;
+                                                              RUS=Курс Валюты];
+                                                   DecimalPlaces=0:5;
+                                                   Editable=No }
+    { 47  ;   ;Residual Gains Account;Code20      ;TableRelation="G/L Account";
+                                                   CaptionML=[ENU=Residual Gains Account;
+                                                              RUS=Остат. Прибыли Фин. Счет] }
+    { 48  ;   ;Residual Losses Account;Code20     ;TableRelation="G/L Account";
+                                                   CaptionML=[ENU=Residual Losses Account;
+                                                              RUS=Остат. Убытки Фин. Счет] }
+    { 50  ;   ;Conv. LCY Rndg. Debit Acc.;Code20  ;TableRelation="G/L Account";
+                                                   CaptionML=[ENU=Conv. LCY Rndg. Debit Acc.;
+                                                              RUS=Конв. РУБ Окр. Дебет Фин.Счет] }
+    { 51  ;   ;Conv. LCY Rndg. Credit Acc.;Code20 ;TableRelation="G/L Account";
+                                                   CaptionML=[ENU=Conv. LCY Rndg. Credit Acc.;
+                                                              RUS=Конв. РУБ Окр. Кредит Фин.Счет] }
+    { 52  ;   ;Max. VAT Difference Allowed;Decimal;OnValidate=BEGIN
+                                                                IF "Max. VAT Difference Allowed" <> ROUND("Max. VAT Difference Allowed","Amount Rounding Precision") THEN
+                                                                  ERROR(
+                                                                    Text001,
+                                                                    FIELDCAPTION("Max. VAT Difference Allowed"),"Amount Rounding Precision");
+
+                                                                "Max. VAT Difference Allowed" := ABS("Max. VAT Difference Allowed");
+                                                              END;
+
+                                                   CaptionML=[ENU=Max. VAT Difference Allowed;
+                                                              RUS=Макс. Разреш. Разница НДС];
+                                                   AutoFormatType=1;
+                                                   AutoFormatExpr=Code }
+    { 53  ;   ;VAT Rounding Type   ;Option        ;CaptionML=[ENU=VAT Rounding Type;
+                                                              RUS=НДС Тип Округления];
+                                                   OptionCaptionML=[ENU=Nearest,Up,Down;
+                                                                    RUS=Ближайшее,Большее,Меньшее];
+                                                   OptionString=Nearest,Up,Down }
+    { 54  ;   ;Payment Tolerance % ;Decimal       ;CaptionML=[ENU=Payment Tolerance %;
+                                                              RUS=Отклонение в Оплате %];
+                                                   DecimalPlaces=0:5;
+                                                   MinValue=0;
+                                                   Editable=No }
+    { 55  ;   ;Max. Payment Tolerance Amount;Decimal;
+                                                   CaptionML=[ENU=Max. Payment Tolerance Amount;
+                                                              RUS=Макс. Сумма Отклонения Оплаты];
+                                                   MinValue=0;
+                                                   Editable=No;
+                                                   AutoFormatType=1;
+                                                   AutoFormatExpr=Code }
+    { 12400;  ;Unit Kind           ;Option        ;CaptionML=[ENU=Unit Kind;
+                                                              RUS=Единица Род];
+                                                   OptionCaptionML=[ENU=Female,Male,Neuter;
+                                                                    RUS=Женский,Мужской,Средний];
+                                                   OptionString=Female,Male,Neuter }
+    { 12401;  ;Unit Name 1         ;Text30        ;CaptionML=[ENU=Unit Name 1;
+                                                              RUS=Единица Название 1] }
+    { 12402;  ;Unit Name 2         ;Text30        ;CaptionML=[ENU=Unit Name 2;
+                                                              RUS=Единица Название 2] }
+    { 12403;  ;Unit Name 5         ;Text30        ;CaptionML=[ENU=Unit Name 5;
+                                                              RUS=Единица Название 5] }
+    { 12404;  ;Hundred Kind        ;Option        ;CaptionML=[ENU=Hundred Kind;
+                                                              RUS=Сотни Род];
+                                                   OptionCaptionML=[ENU=Female,Male,Neuter;
+                                                                    RUS=Женский,Мужской,Средний];
+                                                   OptionString=Female,Male,Neuter }
+    { 12405;  ;Hundred Name        ;Text30        ;CaptionML=[ENU=Hundred Name;
+                                                              RUS=Сотни Название] }
+    { 12406;  ;Hundred Kind 2/100  ;Text30        ;CaptionML=[ENU=Hundred Kind 2/100;
+                                                              RUS=Сотни Род 2/100] }
+    { 12407;  ;Hundred Kind 5/100  ;Text30        ;CaptionML=[ENU=Hundred Kind 5/100;
+                                                              RUS=Сотни Род 5/100] }
+    { 12409;  ;Search Method       ;Option        ;CaptionML=[ENU=Search Method;
+                                                              RUS=Метод Поиска];
+                                                   OptionCaptionML=[ENU=To Date,As of Date;
+                                                                    RUS=До Даты,Точно на Дату];
+                                                   OptionString=To Date,As of Date }
+    { 12410;  ;Conventional        ;Boolean       ;CaptionML=[ENU=Conventional;
+                                                              RUS=Условная единица] }
+    { 12411;  ;Invoice Comment     ;Text250       ;CaptionML=[ENU=Invoice Comment;
+                                                              RUS=Комментарий Счета] }
+    { 12412;  ;Purch. Amt. Diff. Gains Acc.;Code20;TableRelation="G/L Account";
+                                                   CaptionML=[ENU=Purch. Amt. Diff. Gains Acc.;
+                                                              RUS=Покупка Сумм. Разн. Прибыль Счет] }
+    { 12413;  ;Purch. Amt. Diff. Losses Acc.;Code20;
+                                                   TableRelation="G/L Account";
+                                                   CaptionML=[ENU=Purch. Amt. Diff. Losses Acc.;
+                                                              RUS=Покупка Сумм. Разн. Убытки Счет] }
+    { 12414;  ;Sales Amt. Diff. Gains Acc.;Code20 ;TableRelation="G/L Account";
+                                                   CaptionML=[ENU=Sales Amt. Diff. Gains Acc.;
+                                                              RUS=Продажа Сумм. Разн. Прибыль Счет] }
+    { 12415;  ;Sales Amt. Diff. Losses Acc.;Code20;TableRelation="G/L Account";
+                                                   CaptionML=[ENU=Sales Amt. Diff. Losses Acc.;
+                                                              RUS=Продажа Сумм. Разн. Убытки Счет] }
+    { 12416;  ;Sales PD Gains Acc. (TA);Code20    ;TableRelation="G/L Account";
+                                                   CaptionML=[ENU=Sales PD Gains Acc. (TA);
+                                                              RUS=Продажа Ав. Разн. Прибыль Счет (НУ)] }
+    { 12417;  ;Sales PD Losses Acc. (TA);Code20   ;TableRelation="G/L Account";
+                                                   CaptionML=[ENU=Sales PD Losses Acc. (TA);
+                                                              RUS=Продажа Ав. Разн. Убыток Счет (НУ)] }
+    { 12418;  ;Purch. PD Gains Acc. (TA);Code20   ;TableRelation="G/L Account";
+                                                   CaptionML=[ENU=Purch. PD Gains Acc. (TA);
+                                                              RUS=Покупка Ав. Разн. Прибыль Счет (НУ)] }
+    { 12419;  ;Purch. PD Losses Acc. (TA);Code20  ;TableRelation="G/L Account";
+                                                   CaptionML=[ENU=Purch. PD Losses Acc. (TA);
+                                                              RUS=Покупка Ав. Разн. Убыток Счет (НУ)] }
+    { 12420;  ;Import              ;Boolean       ;OnValidate=BEGIN
+                                                                //NC PIF001 > MP
+                                                                {
+                                                                IF Import AND ("RU Bank Code" = '') THEN
+                                                                  "RU Bank Code" := Code;
+                                                                }
+                                                                //NC PIF001 < MP
+                                                              END;
+
+                                                   CaptionML=[ENU=Import;
+                                                              RUS=Импорт] }
+    { 12421;  ;RU Bank Code        ;Code10        ;OnValidate=BEGIN
+                                                                //NC PIF001 > MP
+                                                                Import := ("RU Bank Code" <> '');
+                                                                //NC PIF001 < MP
+                                                              END;
+
+                                                   CaptionML=[ENU=RU Bank Code;
+                                                              RUS=Код Банка России] }
+    { 12422;  ;PD Bal. Gain/Loss Acc. (TA);Code20 ;TableRelation="G/L Account";
+                                                   CaptionML=[ENU=PD Bal. Gain/Loss Acc. (TA);
+                                                              RUS=Ав. Разн. Бал. Счет Прибылей и Убытков (НУ)] }
+    { 12423;  ;Description 2       ;Text30        ;CaptionML=[ENU=Description 2;
+                                                              RUS=Описание 2] }
+    { 12491;  ;Agreement Filter    ;Code20        ;FieldClass=FlowFilter;
+                                                   CaptionML=[ENU=Agreement Filter;
+                                                              RUS=Договор Фильтр] }
+    { 50001;  ;Source Currency Code;Code10        ;CaptionML=[ENU=Source Currency Code;
+                                                              RUS=Код Валюты Источника] }
+    { 50002;  ;Transform Effect Acc.;Code20       ;TableRelation="G/L Account";
+                                                   OnValidate=BEGIN
+                                                                CheckGLAcc("Transform Effect Acc.");
+                                                              END;
+
+                                                   CaptionML=[ENU=Transform Effect Acc.;
+                                                              RUS=Фин. Счет Трансформационного Эффекта] }
+    { 50003;  ;RU Bank Base Currency;Boolean      ;CaptionML=[ENU=RU Bank Base Currency;
+                                                              RUS=RU Банк Основная Валюта] }
+    { 50004;  ;Relational Currency Code;Code10    ;CaptionML=[ENU=Relational Currency Code;
+                                                              RUS=Связанная Валюта Код] }
+    { 50011;  ;Currency Dimension Value;Code20    ;TableRelation="Dimension Value";
+                                                   OnValidate=VAR
+                                                                "NCV>"@1000000000 : Integer;
+                                                                DimValue@1000000001 : Record 349;
+                                                              BEGIN
+                                                                //NC MDTA01 > MP
+                                                                IF "Currency Dimension Value" <> '' THEN BEGIN
+                                                                  GLSetup.GET;
+                                                                  DimValue.GET(GLSetup."Currency Dimension Code", "Currency Dimension Value");
+                                                                END;
+                                                                //NC MDTA01 < MP
+                                                              END;
+
+                                                   OnLookup=VAR
+                                                              "NCV>"@1000000000 : Integer;
+                                                              DimValue@1000000001 : Record 349;
+                                                            BEGIN
+                                                              //NC MDTA01 > MP
+                                                              GLSetup.GET;
+                                                              GLSetup.TESTFIELD("Currency Dimension Code");
+                                                              DimValue.RESET;
+                                                              DimValue.SETRANGE("Dimension Code", GLSetup."Currency Dimension Code");
+                                                              IF DimValue.GET(GLSetup."Currency Dimension Code", "Currency Dimension Value") THEN;
+                                                              IF FORM.RUNMODAL(FORM::"Dimension Value List", DimValue) = ACTION::LookupOK THEN BEGIN
+                                                                VALIDATE("Currency Dimension Value", DimValue.Code);
+                                                              END;
+                                                              //NC MDTA01 < MP
+                                                            END;
+
+                                                   ValidateTableRelation=No;
+                                                   CaptionML=[ENU=Currency Dimension Value;
+                                                              RUS=Значение Измерения Валюта];
+                                                   Description=NC MDTA01 MP }
+    { 50020;  ;Check Currency Code ;Code10        ;TableRelation=Currency;
+                                                   CaptionML=[ENU=Relational Currency Code;
+                                                              RUS=Проверка Валюта Код];
+                                                   Description=NC MDTY01MP }
+    { 50030;  ;Currency Type       ;Option        ;CaptionML=[ENU=Currency Type;
+                                                              RUS=Тип Валюты];
+                                                   OptionCaptionML=[ENU=Currency,Prec. Metal,Index,Percent;
+                                                                    RUS=Валюта,Драгметал,Индекс,Процент];
+                                                   OptionString=Currency,Prec. Metal,Index,Percent;
+                                                   Description=NC MFUT01 AG }
+  }
+  KEYS
+  {
+    {    ;Code                                    ;Clustered=Yes }
+    {    ;Source Currency Code                     }
+  }
+  CODE
+  {
+    VAR
+      Text000@1000 : TextConst 'ENU=must be rounded to the nearest %1;RUS=должно быть округлено до ближайшего %1';
+      Text001@1001 : TextConst 'ENU=%1 must be rounded to the nearest %2.;RUS=%1 должно быть округлена до ближайшей %2.';
+      CurrExchRate@1002 : Record 330;
+      GLSetup@1003 : Record 98;
+
+    PROCEDURE InitRoundingPrecision@2();
+    BEGIN
+      GLSetup.GET;
+      IF GLSetup."Amount Rounding Precision" <> 0 THEN
+        "Amount Rounding Precision" := GLSetup."Amount Rounding Precision"
+      ELSE
+        "Amount Rounding Precision" := 0.01;
+      IF GLSetup."Unit-Amount Rounding Precision" <> 0 THEN
+        "Unit-Amount Rounding Precision" := GLSetup."Unit-Amount Rounding Precision"
+      ELSE
+        "Unit-Amount Rounding Precision" := 0.00001;
+      "Max. VAT Difference Allowed" := GLSetup."Max. VAT Difference Allowed";
+      "VAT Rounding Type" := GLSetup."VAT Rounding Type";
+      IF GLSetup."Inv. Rounding Precision (LCY)" = 0 THEN BEGIN
+        IF "Amount Rounding Precision" > 0.01 THEN
+          "Invoice Rounding Precision" := "Amount Rounding Precision"
+        ELSE
+          "Invoice Rounding Precision" := 0.01
+      END ELSE
+      "Invoice Rounding Precision" := GLSetup."Inv. Rounding Precision (LCY)";
+      "Invoice Rounding Type" := GLSetup."Inv. Rounding Type (LCY)";
+    END;
+
+    LOCAL PROCEDURE CheckGLAcc@1(AccNo@1000 : Code[20]);
+    VAR
+      GLAcc@1001 : Record 15;
+    BEGIN
+      IF AccNo <> '' THEN BEGIN
+        GLAcc.GET(AccNo);
+        GLAcc.CheckGLAcc;
+      END;
+    END;
+
+    PROCEDURE VATRoundingDirection@3() : Text[1];
+    BEGIN
+      CASE "VAT Rounding Type" OF
+        "VAT Rounding Type"::Nearest:
+          EXIT('=');
+        "VAT Rounding Type"::Up:
+          EXIT('>');
+        "VAT Rounding Type"::Down:
+          EXIT('<');
+      END;
+    END;
+
+    PROCEDURE InvoiceRoundingDirection@4() : Text[1];
+    BEGIN
+      CASE "Invoice Rounding Type" OF
+        "Invoice Rounding Type"::Nearest:
+          EXIT('=');
+        "Invoice Rounding Type"::Up:
+          EXIT('>');
+        "Invoice Rounding Type"::Down:
+          EXIT('<');
+      END;
+    END;
+
+    PROCEDURE CheckAmountRoundingPrecision@5();
+    BEGIN
+      TESTFIELD("Unit-Amount Rounding Precision");
+      TESTFIELD("Amount Rounding Precision");
+    END;
+
+    PROCEDURE GetAmtDiffAccount@6(CVType@1001 : 'Vendor,Customer';NeedGainAccount@1000 : Boolean) : Code[20];
+    BEGIN
+      CASE CVType OF
+        CVType::Vendor:
+          IF NeedGainAccount THEN BEGIN
+            TESTFIELD("Purch. Amt. Diff. Gains Acc.");
+            EXIT("Purch. Amt. Diff. Gains Acc.");
+          END ELSE BEGIN
+            TESTFIELD("Purch. Amt. Diff. Losses Acc.");
+            EXIT("Purch. Amt. Diff. Losses Acc.");
+          END;
+        CVType::Customer:
+          IF NeedGainAccount THEN BEGIN
+            TESTFIELD("Sales Amt. Diff. Gains Acc.");
+            EXIT("Sales Amt. Diff. Gains Acc.");
+          END ELSE BEGIN
+            TESTFIELD("Sales Amt. Diff. Losses Acc.");
+            EXIT("Sales Amt. Diff. Losses Acc.");
+          END;
+      END;
+    END;
+
+    BEGIN
+    {
+      NC PIF001 DL Добавлено поле "1C Code"
+      NC MDTY01 MP New Field Check Currency Code
+      NC MFUT01 AG New Field Currency Type
+    }
+    END.
+  }
+}
+
+OBJECT Table 5 Finance Charge Terms
+{
+  OBJECT-PROPERTIES
+  {
+    Date=13/02/07;
+    Time=12:00:00;
+    Version List=NAVW15.00;
+  }
+  PROPERTIES
+  {
+    DataCaptionFields=Code,Description;
+    OnDelete=BEGIN
+               FinChrgText.SETRANGE("Fin. Charge Terms Code",Code);
+               FinChrgText.DELETEALL;
+
+               CurrForFinChrgTerms.SETRANGE("Fin. Charge Terms Code",Code);
+               CurrForFinChrgTerms.DELETEALL;
+             END;
+
+    CaptionML=[ENU=Finance Charge Terms;
+               RUS=Процентные Ставки];
+    LookupFormID=Form6;
+  }
+  FIELDS
+  {
+    { 1   ;   ;Code                ;Code10        ;CaptionML=[ENU=Code;
+                                                              RUS=Код];
+                                                   NotBlank=Yes }
+    { 2   ;   ;Interest Rate       ;Decimal       ;CaptionML=[ENU=Interest Rate;
+                                                              RUS=Процентная Ставка];
+                                                   DecimalPlaces=0:5;
+                                                   MinValue=0;
+                                                   MaxValue=100 }
+    { 3   ;   ;Minimum Amount (LCY);Decimal       ;CaptionML=[ENU=Minimum Amount (LCY);
+                                                              RUS=Миним. Сумма (РУБ)];
+                                                   MinValue=0;
+                                                   AutoFormatType=1 }
+    { 5   ;   ;Additional Fee (LCY);Decimal       ;CaptionML=[ENU=Additional Fee (LCY);
+                                                              RUS=Доп. Плата (РУБ)];
+                                                   MinValue=0;
+                                                   AutoFormatType=1 }
+    { 7   ;   ;Description         ;Text30        ;CaptionML=[ENU=Description;
+                                                              RUS=Описание] }
+    { 8   ;   ;Interest Calculation Method;Option ;CaptionML=[ENU=Interest Calculation Method;
+                                                              RUS=Метод Расчета Процентов];
+                                                   OptionCaptionML=[ENU=Average Daily Balance,Balance Due;
+                                                                    RUS=Средний Дневной Баланс,Баланс Задолженности];
+                                                   OptionString=Average Daily Balance,Balance Due }
+    { 9   ;   ;Interest Period (Days);Integer     ;CaptionML=[ENU=Interest Period (Days);
+                                                              RUS=Кредитный Период (Дни)] }
+    { 10  ;   ;Grace Period        ;DateFormula   ;CaptionML=[ENU=Grace Period;
+                                                              RUS=Период Отсрочки] }
+    { 11  ;   ;Due Date Calculation;DateFormula   ;CaptionML=[ENU=Due Date Calculation;
+                                                              RUS=Расчет Даты Оплаты] }
+    { 12  ;   ;Interest Calculation;Option        ;CaptionML=[ENU=Interest Calculation;
+                                                              RUS=Расчет Процентов];
+                                                   OptionCaptionML=[ENU=Open Entries,Closed Entries,All Entries;
+                                                                    RUS=Открытые Операции,Закрытые Операции,Все Операции];
+                                                   OptionString=Open Entries,Closed Entries,All Entries }
+    { 13  ;   ;Post Interest       ;Boolean       ;InitValue=Yes;
+                                                   CaptionML=[ENU=Post Interest;
+                                                              RUS=Учет Процентов] }
+    { 14  ;   ;Post Additional Fee ;Boolean       ;InitValue=Yes;
+                                                   CaptionML=[ENU=Post Additional Fee;
+                                                              RUS=Учет Доп. Платы] }
+    { 15  ;   ;Line Description    ;Text50        ;CaptionML=[ENU=Line Description;
+                                                              RUS=Описание Строки] }
+  }
+  KEYS
+  {
+    {    ;Code                                    ;Clustered=Yes }
+  }
+  CODE
+  {
+    VAR
+      FinChrgText@1000 : Record 301;
+      CurrForFinChrgTerms@1001 : Record 328;
+
+    BEGIN
+    END.
+  }
+}
+
